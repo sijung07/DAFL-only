@@ -1,6 +1,6 @@
 import subprocess
 
-MAX_INSTANCE_NUM = 40
+MAX_INSTANCE_NUM = 16
 MEM_PER_INSTANCE = 4  # GB
 
 
