@@ -1,6 +1,6 @@
 import sys, os, time, csv, shutil
 from common import run_cmd, run_cmd_in_docker, check_cpu_count, fetch_works, MEM_PER_INSTANCE
-from benchmark import generate_fuzzing_worklist, FUZZ_TARGETS, SUPPLE_FUZZ_TARGETS, MINIMAL_FUZZ_TARGETS, SCALED_FUZZ_TARGETS
+from benchmark import generate_fuzzing_worklist, FUZZ_TARGETS, EVAL_FUZZ_TARGETS
 from benchmark import under5000, under21600, under43200, under86400
 from parse_result import print_result
 from plot import draw_figure5, draw_figure7, draw_figure8, draw_figure9, draw_result
@@ -91,6 +91,9 @@ def main():
         target = "lrzip-ed51e14-2018-11496"
         benchmark = target
         target_list = [target]
+    elif "eval" in target:
+        benchmark = "eval"
+        target_list = [x for (x,y,z,w) in EVAL_FUZZ_TARGETS]
     elif target in [x for (x,y,z,w) in FUZZ_TARGETS]:
         benchmark = target
         target_list = [target]
