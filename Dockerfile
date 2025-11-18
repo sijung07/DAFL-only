@@ -46,73 +46,26 @@ RUN apt-get update && \
       # For lrzip
       libbz2-dev liblzo2-dev \
       # For 32bit binaries
-      gcc-multilib
-
-# Create a fuzzer directory and setup fuzzers there.
-RUN mkdir /fuzzer
-WORKDIR /fuzzer
-
-COPY docker-setup/setup_AFLGo.sh /fuzzer/setup_AFLGo.sh
-RUN ./setup_AFLGo.sh
-
-COPY docker-setup/windranger.tar.gz /fuzzer/windranger.tar.gz
-COPY docker-setup/AddSan.cc /fuzzer
-COPY docker-setup/setup_WindRanger.sh /fuzzer/setup_WindRanger.sh
-RUN ./setup_WindRanger.sh
-
-# Create a benchmark directory and start working there.
-RUN mkdir -p /benchmark/bin && \
-    mkdir -p /benchmark/seed && \
-    mkdir -p /benchmark/poc
-COPY docker-setup/seed/empty /benchmark/seed/empty
-WORKDIR /benchmark
-
-# To use ASAN during the benchmark build, these option are needed.
-ENV ASAN_OPTIONS=allocator_may_return_null=1,detect_leaks=0
-
-# Build benchmark with AFL/AFLGo.
-COPY docker-setup/benchmark-project /benchmark/project
-COPY docker-setup/build_bench_common.sh /benchmark/build_bench_common.sh
-COPY docker-setup/build_bench_ASAN.sh /benchmark/build_bench_ASAN.sh
-RUN ./build_bench_ASAN.sh
-COPY docker-setup/target/stack-trace /benchmark/target/stack-trace
-
-# Build benchmark with Beacon and WindRanger.
-COPY docker-setup/target/line /benchmark/target/line
-
-# Run smake on bechmarks to prepare input for sparrow
-COPY docker-setup/patches /benchmark/patches
-COPY smake/ /smake
-COPY docker-setup/run-smake.sh /benchmark/run-smake.sh
-RUN /benchmark/run-smake.sh
-RUN rm /benchmark/run-smake.sh
+      gcc-multilib \
+      # For binutils
+      texinfo
 
 # Setup Sparrow
+COPY smake/ /smake
 COPY docker-setup/setup_Sparrow.sh /setup_Sparrow.sh
 RUN /setup_Sparrow.sh
-RUN rm /setup_Sparrow.sh
-
-# Analyze benchmark with Sparrow.
-RUN mkdir /benchmark/scripts
-COPY scripts/benchmark.py /benchmark/scripts
-COPY scripts/common.py /benchmark/scripts
-COPY scripts/triage.py /benchmark/scripts
-COPY scripts/run_sparrow.py /benchmark/scripts
-RUN python3 /benchmark/scripts/run_sparrow.py all thin
-RUN python3 /benchmark/scripts/run_sparrow.py all naive
 
 # Setup DAFL.
+RUN mkdir /fuzzer
 WORKDIR /fuzzer
 COPY docker-setup/setup_DAFL.sh /fuzzer/setup_DAFL.sh
 RUN ./setup_DAFL.sh
 
-# Build benchmarks with DAFL.
-WORKDIR /benchmark
-COPY docker-setup/build_bench_DAFL.sh /benchmark/build_bench_DAFL.sh
-RUN ./build_bench_DAFL.sh
+# Add empty seed.
+COPY docker-setup/seed/empty /seed/empty
 
-# Copy script for debugging.
-COPY docker-setup/parse_build_log.py /benchmark/
+# To use ASAN during the benchmark build, these option are needed.
+ENV ASAN_OPTIONS=allocator_may_return_null=1,detect_leaks=0
 
 # Copy tool running scripts.
 COPY docker-setup/tool-script /tool-script

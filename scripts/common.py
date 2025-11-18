@@ -16,6 +16,17 @@ def run_cmd(cmd_str):
         print(e)
         exit(1)
 
+def run_cmd_arr(cmd_arr):
+    print("[*] Executing: %s" % " ".join(cmd_arr))
+    try:
+        PIPE = subprocess.PIPE
+        p = subprocess.Popen(cmd_arr, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        output, err = p.communicate()
+        return output
+    except Exception as e:
+        print(e)
+        exit(1)
+
 
 def run_cmd_in_docker(container, cmd_str, is_detached):
     print("[*] Executing '%s' in container %s" % (cmd_str, container))
