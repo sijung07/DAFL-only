@@ -1,44 +1,23 @@
-import sys, os, time, csv, shutil
-from common import run_cmd, run_cmd_in_docker, check_cpu_count, fetch_works, MEM_PER_INSTANCE
-from benchmark import generate_fuzzing_worklist, FUZZ_TARGETS, EVAL_FUZZ_TARGETS
-from benchmark import under5000, under21600, under43200, under86400
-from parse_result import print_result
-from plot import draw_figure5, draw_figure7, draw_figure8, draw_figure9, draw_result
-import copy
+import sys, os, time
+from common import run_cmd, run_cmd_arr, check_cpu_count
+from benchmark import generate_fuzzing_worklist
 
-BASE_DIR = os.path.join(os.path.dirname(__file__), os.pardir)
-IMAGE_NAME = "gdfuzz"
+BASE_DIR = "/results"
 
-def decide_outdir(target, timelimit, iteration, tool):
-    name = "%s-%ssec-%siters" % (target, timelimit, iteration)
-    if target == "origin":
-        outdir = os.path.join(BASE_DIR, "output", "origin")
-    elif tool == "":
-        outdir = os.path.join(BASE_DIR, "output", name)
-    else:
-        outdir = os.path.join(BASE_DIR, "output", name, tool)
+def decide_outdir(benchmark, bug, timelimit, iteration, tool):
+    name = "%s-%s-%ssec-%siters" % (benchmark, bug, timelimit, iteration)
+    outdir = os.path.join(BASE_DIR, "output", name, tool)
     os.makedirs(outdir, exist_ok=True)
     return outdir
 
+def run_fuzzing(work, tool, timelimit, outdir):
+    benchmark, prog, bug, cmdline, src, iter_id = work
+    cmd = ['/tool-script/run_%s.sh' % tool, benchmark, prog, bug, cmdline, src, str(timelimit), str(iter_id), outdir]
+    res = run_cmd_arr(cmd)
+    print(res)
 
-def spawn_containers(works):
-    for i in range(len(works)):
-        targ_prog, _, _, iter_id = works[i]
-        cmd = "docker run --tmpfs /box:exec --rm -m=%dg --cpuset-cpus=%d -it -d --name %s-%s %s" \
-                % (MEM_PER_INSTANCE, i, targ_prog, iter_id, IMAGE_NAME)
-        run_cmd(cmd)
-
-
-def run_fuzzing(works, tool, timelimit):
-    for (targ_prog, cmdline, src, iter_id) in works:
-        cmd = "/tool-script/run_%s.sh %s \"%s\" %s %d" % \
-                (tool, targ_prog, cmdline, src, timelimit)
-        run_cmd_in_docker("%s-%s" % (targ_prog, iter_id), cmd, True)
-
-
-def wait_finish(works, timelimit):
+def wait_finish(work, timelimit):
     time.sleep(timelimit)
-    total_count = len(works)
     elapsed_min = 0
     while True:
         if elapsed_min > 120:
@@ -46,31 +25,12 @@ def wait_finish(works, timelimit):
         time.sleep(60)
         elapsed_min += 1
         print("Waited for %d min" % elapsed_min)
-        finished_count = 0
-        for (targ_prog, _, _, iter_id) in works:
-            container = "%s-%s" % (targ_prog, iter_id)
-            stat_str = run_cmd_in_docker(container, "cat /STATUS", False)
-            if "FINISHED" in stat_str:
-                finished_count += 1
-            else:
-                print("%s-%s not finished" % (targ_prog, iter_id))
-        if finished_count == total_count:
-            print("All works finished!")
+        benchmark, _, _, _, _, iter_id = work
+        stat_str = str(run_cmd("cat /STATUS"))
+        if "FINISHED" in stat_str:
             break
-
-
-def store_outputs(works, outdir):
-    for (targ_prog, _, _, iter_id) in works:
-        container = "%s-%s" % (targ_prog, iter_id)
-        cmd = "docker cp %s:/output %s/%s" % (container, outdir, container)
-        run_cmd(cmd)
-
-
-def cleanup_containers(works):
-    for (targ_prog, _, _, iter_id) in works:
-        cmd = "docker kill %s-%s" % (targ_prog, iter_id)
-        run_cmd(cmd)
-
+        else:
+            print("%s-%s not finished" % (benchmark, iter_id))
 
 def main():
     if len(sys.argv) < 3:
@@ -79,55 +39,49 @@ def main():
 
     check_cpu_count()
 
-    target = sys.argv[1]
+    benchmark = sys.argv[1]
     timelimit = int(sys.argv[2])
     iteration = int(sys.argv[3])
-    target_list = ""
 
-    if "origin" in target:
-        target = target.split("-")[1]
+    #if "origin" in target:
+    #    target = target.split("-")[1]
 
-    if target == "test":
-        target = "lrzip-ed51e14-2018-11496"
-        benchmark = target
-        target_list = [target]
-    elif "eval" in target:
-        benchmark = "eval"
-        target_list = [x for (x,y,z,w) in EVAL_FUZZ_TARGETS]
-    elif "all" in target:
-        benchmark = "all"
-        target_list = [x for (x,y,z,w) in FUZZ_TARGETS]
-    elif target in [x for (x,y,z,w) in FUZZ_TARGETS]:
-        benchmark = target
-        target_list = [target]
-    else:
-        print("Invalid target!")
+    #if target == "test":
+    #    target = "lrzip-ed51e14-2018-11496"
+    #    benchmark = target
+    #    target_list = [target]
+    #elif "eval" in target:
+    #    benchmark = "eval"
+    #    target_list = [x for (x,y,z,w) in EVAL_FUZZ_TARGETS]
+    #elif target in [x for (x,y,z,w) in FUZZ_TARGETS]:
+    #    benchmark = target
+    #    target_list = [target]
+    #else:
+    #    print("Invalid target!")
 
     ### 1. Run fuzzing
     tool = "DAFL"
     worklist = generate_fuzzing_worklist(benchmark, iteration)
-    outdir = decide_outdir(target, str(timelimit), str(iteration), tool)
-    while len(worklist) > 0:
-        works = fetch_works(worklist)
-        spawn_containers(works)
-        run_fuzzing(works, tool, timelimit)
-        wait_finish(works, timelimit)
-        store_outputs(works, outdir)
-        cleanup_containers(works)
+    for work in worklist:
+        benchmark, _, bug, _, _, _ = work
+        outdir = decide_outdir(benchmark, bug, str(timelimit), str(iteration), tool)
+        run_fuzzing(work, tool, timelimit, outdir)
+        wait_finish(work, timelimit)
+        break
 
         #### Reset timelimit to user input
-        timelimit = int(sys.argv[2])
+        #timelimit = int(sys.argv[2])
 
-    if "origin" in sys.argv[1]:
-        outdir = decide_outdir("origin", "", "", "")
-    else:
-        outdir = decide_outdir(target, str(timelimit), str(iteration), "")
+    #if "origin" in sys.argv[1]:
+    #    outdir = decide_outdir("origin", "", "", "")
+    #else:
+    #    outdir = decide_outdir(target, str(timelimit), str(iteration), "")
 
-    ### 2. Parse and print results in CSV and TSV format
-    print_result(outdir, target, target_list, timelimit,  iteration, [tool])
+    #### 2. Parse and print results in CSV and TSV format
+    #print_result(outdir, target, target_list, timelimit,  iteration, [tool])
 
-    ### 3. Draw bar plot with TSV file
-    draw_result(outdir, target)
+    #### 3. Draw bar plot with TSV file
+    #draw_result(outdir, target)
 
 
 if __name__ == "__main__":
