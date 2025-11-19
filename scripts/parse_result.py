@@ -101,18 +101,13 @@ def parse_tte(targ, targ_dir):
     return None
 
 def read_sa_results():
-    df = pd.read_csv(os.path.join(SCRIPT_PATH,"..",'sa_overhead.csv'))
-    targets= list(df['Target'])
+    df = pd.read_csv(os.path.join(SCRIPT_PATH, 'sa_overhead.csv'))
+    targets = list(df['Target'])
     dafl = list(df['DAFL'])
-    dafl_naive = list(df['DAFL_naive'])
-    aflgo = list(df['AFLGo'])
-    beacon = list(df['Beacon'])
 
-    sa_dict={}
-    for tool in ["DAFL", "DAFL_naive", "AFLGo", "Beacon"]:
-        sa_dict[tool]={}
-        for i in range(len(targets)):
-            sa_dict[tool][targets[i]] = df[tool][i]
+    sa_dict = {}
+    for i in range(len(targets)):
+        sa_dict[targets[i]] = dafl[i]
     return sa_dict
 
 def analyze_targ_result(outdir, timeout, targ, iter_cnt):
@@ -140,35 +135,36 @@ def analyze_targ_result(outdir, timeout, targ, iter_cnt):
     print("Timeout iterations: %s" % timeout_list)
     print("------------------------------------------------------------------")
 
-def print_result(outdir, exp_id, targ_list, timeout, iter_cnt, tools):
+def print_result(outdir, targ_list, timeout, iter_cnt):
     df_dict = {}
-    df_dict["Target"] = targ_list
+    df_dict["Target"] = []
+    for targ in targ_list:
+        benchmark, _, bug, _, _, _ = targ
+        df_dict['Target'].append(f'{benchmark}-{bug}')
 
     sa_dict = read_sa_results()
-    for tool in tools:
-        med_tte_list = []
-        for targ in targ_list:
-            tte_list = []
-            for iter_id in range(iter_cnt):
-                targ_dir = os.path.join(outdir, tool, "%s-iter-%d" % (targ, iter_id))
-                tte = parse_tte(targ, targ_dir)
-                tte_list.append(tte)
-            med_tte = median_tte(tte_list, timeout)
-            if ">" in med_tte:
-                found_iter_cnt = iter_cnt - len([x for x in tte_list if (x is None or x > timeout)])
-                med_tte = "N.A.(%d/%d)" % (found_iter_cnt, iter_cnt)
-            else:
-                if tool in sa_dict:
-                    med_tte = str( int(med_tte) + sa_dict[tool][targ] )
-                elif "DAFL" in tool:
-                    med_tte = str( int(med_tte) + sa_dict["DAFL"][targ] )
-            
-            med_tte_list.append(med_tte)
+    tool = "DAFL"
+    med_tte_list = []
+    for targ in targ_list:
+        benchmark, prog, bug, cmdline, src, iter_id = targ
+        tte_list = []
+        for iter_id in range(iter_cnt):
+            targ_dir = os.path.join(outdir, "%s-iter-%d" % (bug, iter_id))
+            tte = parse_tte(targ, targ_dir)
+            tte_list.append(tte)
+        med_tte = median_tte(tte_list, timeout)
+        if ">" in med_tte:
+            found_iter_cnt = iter_cnt - len([x for x in tte_list if (x is None or x > timeout)])
+            med_tte = "N.A.(%d/%d)" % (found_iter_cnt, iter_cnt)
+        else:
+            med_tte = str( int(med_tte) + sa_dict[f'{benchmark}-{bug}'] )
+        
+        med_tte_list.append(med_tte)
         df_dict[tool] = med_tte_list
     
     tte_df = pd.DataFrame.from_dict(df_dict)
-    tte_df.to_csv(os.path.join(outdir, "%s.csv" % exp_id), index=False)
-    tte_df.to_csv(os.path.join(outdir, "%s.tsv" % exp_id), index=False, sep="\t")
+    tte_df.to_csv(os.path.join(outdir, "result.csv"), index=False)
+    tte_df.to_csv(os.path.join(outdir, "result.tsv"), index=False, sep="\t")
 
 def main():
     if len(sys.argv) not in [2, 3]:

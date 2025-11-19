@@ -235,8 +235,9 @@ def generate_slicing_worklist(benchmark):
 
 
 def check_targeted_crash(targ, replay_buf):
-    for (targ_prog, _, _, crash_checker) in FUZZ_TARGETS:
-        if targ_prog == targ:
+    benchmark, _, bug, _, _, _ = targ
+    for (_, targ_bug, _, _, crash_checker) in FUZZ_TARGETS[benchmark]:
+        if targ_bug == bug:
             return crash_checker(replay_buf)
     print("Unknown target: %s" % targ)
     exit(1)

@@ -6,6 +6,7 @@ if [ $# -ne 8 ]; then
 fi
 
 # Prepare a fresh working directory.
+rm -rf /STATUS
 rm -rf /box
 mkdir /box
 cd /box

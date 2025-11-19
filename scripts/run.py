@@ -1,20 +1,25 @@
 import sys, os, time
 from common import run_cmd, run_cmd_arr, check_cpu_count
 from benchmark import generate_fuzzing_worklist
+from parse_result import print_result
 
 BASE_DIR = "/results"
 
-def decide_outdir(benchmark, bug, timelimit, iteration, tool):
-    name = "%s-%s-%ssec-%siters" % (benchmark, bug, timelimit, iteration)
-    outdir = os.path.join(BASE_DIR, "output", name, tool)
+def decide_basedir(benchmark, timelimit, iteration):
+    name = "%s-%ssec-%siters" % (benchmark, timelimit, iteration)
+    outdir = os.path.join(BASE_DIR, name)
+    return outdir
+
+def decide_outdir(benchmark, bug, timelimit, iteration, iter_id):
+    name = "%s-%ssec-%siters" % (benchmark, timelimit, iteration)
+    outdir = os.path.join(BASE_DIR, name, "%s-iter-%d" % (bug, iter_id))
     os.makedirs(outdir, exist_ok=True)
     return outdir
 
-def run_fuzzing(work, tool, timelimit, outdir):
+def run_fuzzing(work, timelimit, outdir):
     benchmark, prog, bug, cmdline, src, iter_id = work
-    cmd = ['/tool-script/run_%s.sh' % tool, benchmark, prog, bug, cmdline, src, str(timelimit), str(iter_id), outdir]
-    res = run_cmd_arr(cmd)
-    print(res)
+    cmd = ['/tool-script/run_DAFL.sh', benchmark, prog, bug, cmdline, src, str(timelimit), str(iter_id), outdir]
+    run_cmd_arr(cmd)
 
 def wait_finish(work, timelimit):
     time.sleep(timelimit)
@@ -43,46 +48,20 @@ def main():
     timelimit = int(sys.argv[2])
     iteration = int(sys.argv[3])
 
-    #if "origin" in target:
-    #    target = target.split("-")[1]
-
-    #if target == "test":
-    #    target = "lrzip-ed51e14-2018-11496"
-    #    benchmark = target
-    #    target_list = [target]
-    #elif "eval" in target:
-    #    benchmark = "eval"
-    #    target_list = [x for (x,y,z,w) in EVAL_FUZZ_TARGETS]
-    #elif target in [x for (x,y,z,w) in FUZZ_TARGETS]:
-    #    benchmark = target
-    #    target_list = [target]
-    #else:
-    #    print("Invalid target!")
-
     ### 1. Run fuzzing
-    tool = "DAFL"
     worklist = generate_fuzzing_worklist(benchmark, iteration)
     for work in worklist:
-        benchmark, _, bug, _, _, _ = work
-        outdir = decide_outdir(benchmark, bug, str(timelimit), str(iteration), tool)
-        run_fuzzing(work, tool, timelimit, outdir)
+        benchmark, _, bug, _, _, iter_id = work
+        outdir = decide_outdir(benchmark, bug, str(timelimit), str(iteration), iter_id)
+        run_fuzzing(work, timelimit, outdir)
         wait_finish(work, timelimit)
-        break
 
-        #### Reset timelimit to user input
-        #timelimit = int(sys.argv[2])
-
-    #if "origin" in sys.argv[1]:
-    #    outdir = decide_outdir("origin", "", "", "")
-    #else:
-    #    outdir = decide_outdir(target, str(timelimit), str(iteration), "")
-
-    #### 2. Parse and print results in CSV and TSV format
-    #print_result(outdir, target, target_list, timelimit,  iteration, [tool])
+    ### 2. Parse and print results in CSV and TSV format
+    outdir = decide_basedir(benchmark, str(timelimit), str(iteration))
+    print_result(outdir, worklist, timelimit, iteration)
 
     #### 3. Draw bar plot with TSV file
     #draw_result(outdir, target)
-
 
 if __name__ == "__main__":
     main()
