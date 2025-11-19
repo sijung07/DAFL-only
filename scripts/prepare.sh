@@ -8,11 +8,16 @@ mkdir -p /benchmark/seed
 mkdir -p /benchmark/poc
 cp /seed/empty /benchmark/seed/empty
 
-BENCHMARK_BASE=$1
-TARGET=$2
+BENCHMARK_BASE=/projects
+TARGET=$1
 
 SRC_BIN_DIR=$BENCHMARK_BASE/$TARGET/bin/
 DST_BIN_DIR=/benchmark/bin/DAFL/$TARGET/
+mkdir -p $DST_BIN_DIR
+cp $SRC_BIN_DIR/* $DST_BIN_DIR/
+
+SRC_BIN_DIR=$BENCHMARK_BASE/$TARGET/asan/
+DST_BIN_DIR=/benchmark/bin/ASAN/$TARGET/
 mkdir -p $DST_BIN_DIR
 cp $SRC_BIN_DIR/* $DST_BIN_DIR/
 

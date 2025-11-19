@@ -31,6 +31,7 @@ RUN rm /root/checkout_build_install_llvm.sh
 # Install packages needed for fuzzers and benchmark
 RUN apt-get update && \
     apt-get install -yy \
+      python3-pip \
       # Several packages get uninstalled after LLVM setup.
       git build-essential bc \
       # For ParmeSan
@@ -49,6 +50,8 @@ RUN apt-get update && \
       gcc-multilib \
       # For binutils
       texinfo
+
+RUN python3 -m pip install pandas
 
 # Setup Sparrow
 COPY smake/ /smake
