@@ -1,6 +1,6 @@
 from triage import *
 
-# (target bin, target cmdline, input src, additional option, triage function)
+# Dictionary<target, List<(program, bug_id, cmdline, input_source, crash_checker)>>
 FUZZ_TARGETS = {
     'libming-4.7-swftophp': [
         ("swftophp", "2016-9827", "@@", "file", check_swftophp_2016_9827),
@@ -63,64 +63,7 @@ FUZZ_TARGETS = {
             check_cjpeg_2020_13790)],
 }
 
-#EVAL_FUZZ_TARGETS = [
-#    ("swftophp-4.7-2017-9988", "@@", "file", check_swftophp_2017_9988),
-#    ("swftophp-4.8-2019-12982", "@@", "file", check_swftophp_2019_12982),
-#    ("objcopy-2017-8393", "--compress-debug-sections @@ out", "file", \
-#        check_objcopy_2017_8393),
-#    ("readelf-2017-16828", "-w @@", "file", check_readelf_2017_16828),
-#    ("xmllint-2017-5969", "--recover @@", "file", check_xmllint_2017_5969),
-#    ("xmllint-2017-9048", "--valid @@", "file", check_xmllint_2017_9048),
-#]
-
-under5000 = [
-    "swftophp-4.7-2016-9827",
-    "swftophp-4.7-2016-9829",
-    "swftophp-4.7-2016-9831",
-    "swftophp-4.7-2017-9988",
-
-    "swftophp-4.7-2017-11728",
-    "swftophp-4.7-2017-11729",
-    "swftophp-4.7.1-2017-7578",
-    "swftophp-4.8-2018-11095",
-
-    "lrzip-ed51e14-2018-11496",
-    "cxxfilt-2016-4487",
-    "cxxfilt-2016-4489",
-    "cxxfilt-2016-4490",
-
-    "cxxfilt-2016-4492",
-    "objcopy-2017-8393",
-    "objcopy-2017-8394",
-    "objcopy-2017-8395",
-    
-    "objdump-2017-8392",
-    "strip-2017-7303",
-    "readelf-2017-16828",
-    "xmllint-2017-5969",
-]
-
-under21600 = [
-    "swftophp-4.8-2018-20427",
-    "swftophp-4.8-2019-12982",
-    "objdump-2017-8398",
-    "xmllint-2017-9048",
-]
-
-under43200 = [
-    "swftophp-4.8-2018-11225",
-    "swftophp-4.8-2018-11226",
-    "swftophp-4.8.1-2019-9114",
-    "swftophp-4.8-2020-6628",
-]
-
-under86400 = [
-    "objdump-2017-8397",
-    "nm-2017-14940",
-    "xmllint-2017-9047",
-    "cjpeg-1.5.90-2018-14498",
-]
-
+# Dictionary<target, Record>
 SLICE_TARGETS = {
     'libming-4.7-swftophp': {
         'frontend':'cil',
