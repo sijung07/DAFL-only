@@ -4,6 +4,45 @@
 
 This is the artifact of the paper *DAFL: Directed Grey-box Fuzzing guided by Data Dependency* to appear in USENIX Security 2023.
 
+## __0. Usage (Updated version)__
+
+### __0.1. Run fuzzing__
+
+1. Build the Docker image by running
+```
+$ bash build_docker.sh
+```
+
+2. Run the Docker container by running
+```
+$ bash run_docker.sh [result directory]
+```
+
+3. To prepare and run fuzzing, run the following command inside the Docker container
+```
+$ /scripts/run_DAFL.sh [target] [time limit in seconds] [iteration]
+```
+
+4. To check the results, read this file: `[result directory]/[target]-[time limit]sec-[iteration]iters/result.csv`.
+
+### __0.2. Prepare targets__
+
+1. Create your own target directory by copying `benchmark/EXAMPLE` to `benchmark/[your target]`.
+In this repository, the naming convention of the target directory is `[project name]-[version id]-[binary name]`.
+
+2. Modify `download.sh`, `run_smake.sh`, `build_DAFL.sh`, `build_ASAN.sh`, and `clean.sh` appropriately for your target.
+Check other target directories for reference.
+
+3. Add bug line number information to `benchmark/[your target]/line/[bug name]`.
+Our naming convention of the bug name is `[CVE ID]`, but this is not mandatory.
+
+4. Add poc to trigger the bug to `benchmark/[your target]/poc/[bug name]`.
+
+5. Add seed inputs to `benchmark/[your target]/seeds/` if you have any.
+If you do not have any seed inputs, then remove the seed directory.
+
+6. Add your target to the `FUZZ_TARGETS` and `SLICE_TARGETS` dictionary in `scripts/benchmark.py`.
+
 ## __1. Getting started__
 ### __1.1. System requirements__
 To run the experiments in the paper, we used a 64-core (Intel Xeon Processor Gold 6226R, 2.90 GHz) machine
