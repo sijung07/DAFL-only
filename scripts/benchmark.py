@@ -2,6 +2,16 @@ from triage import *
 
 # (target bin, target cmdline, input src, additional option, triage function)
 
+EVAL_FUZZ_TARGETS = [
+    ("swftophp-4.7-2016-9829", "@@", "file", check_swftophp_2016_9829),
+    ("swftophp-4.7-2017-11729", "@@", "file", check_swftophp_2017_11728),
+    ("cxxfilt-2016-4487", "", "stdin", check_cxxfilt_2016_4487),
+    ("objcopy-2017-8393", "--compress-debug-sections @@ out", "file", \
+        check_objcopy_2017_8393),
+    ("readelf-2017-16828", "-w @@", "file", check_readelf_2017_16828),
+    ("xmllint-2017-5969", "--recover @@", "file", check_xmllint_2017_5969)
+]
+
 FUZZ_TARGETS = [
     ("swftophp-4.7-2016-9827", "@@", "file", check_swftophp_2016_9827),
     ("swftophp-4.7-2016-9829", "@@", "file", check_swftophp_2016_9829),
@@ -51,16 +61,6 @@ FUZZ_TARGETS = [
         check_cjpeg_2018_14498),
     ("cjpeg-2.0.4-2020-13790", "-outfile /dev/null @@", "file", \
         check_cjpeg_2020_13790),
-]
-
-EVAL_FUZZ_TARGETS = [
-    ("swftophp-4.7-2017-9988", "@@", "file", check_swftophp_2017_9988),
-    ("swftophp-4.8-2019-12982", "@@", "file", check_swftophp_2019_12982),
-    ("objcopy-2017-8393", "--compress-debug-sections @@ out", "file", \
-        check_objcopy_2017_8393),
-    ("readelf-2017-16828", "-w @@", "file", check_readelf_2017_16828),
-    ("xmllint-2017-5969", "--recover @@", "file", check_xmllint_2017_5969),
-    ("xmllint-2017-9048", "--valid @@", "file", check_xmllint_2017_9048),
 ]
 
 under5000 = [

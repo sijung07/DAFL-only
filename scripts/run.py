@@ -94,6 +94,9 @@ def main():
     elif "eval" in target:
         benchmark = "eval"
         target_list = [x for (x,y,z,w) in EVAL_FUZZ_TARGETS]
+    elif "all" in target:
+        benchmark = "all"
+        target_list = [x for (x,y,z,w) in FUZZ_TARGETS]
     elif target in [x for (x,y,z,w) in FUZZ_TARGETS]:
         benchmark = target
         target_list = [target]
