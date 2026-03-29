@@ -13,6 +13,7 @@ EXTRA_FLAGS=""
 SPARROW_DIR=""
 
 function build() {
+  :
 }
 # ================================
 

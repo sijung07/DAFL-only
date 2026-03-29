@@ -64,10 +64,16 @@ def get_experiment_info(outdir):
     targ_list = []
     max_iter_id = 0
     for d in os.listdir(outdir):
+        full_path = os.path.join(outdir, d)
+        if not os.path.isdir(full_path):
+            continue
+        iter_suffix = d.rsplit("-", 1)[-1]
+        if not iter_suffix.isdigit():
+            continue
         if d.endswith("-iter-0"):
             targ = d[:-len("-iter-0")]
             targ_list.append(targ)
-        iter_id = int(d.split("-")[-1])
+        iter_id = int(iter_suffix)
         if iter_id > max_iter_id:
             max_iter_id = iter_id
     iter_cnt = max_iter_id + 1
@@ -91,7 +97,7 @@ def parse_tte(targ, targ_dir):
         replay_buf = buf[:end_idx]
         # If there is trailing allocsite information, remove it.
         if ADDITIONAL_INFO_SIG in replay_buf:
-            remove_idx = buf.find(ADDITIONAL_INFO_SIG)
+            remove_idx = replay_buf.find(ADDITIONAL_INFO_SIG)
             replay_buf = replay_buf[:remove_idx]
         if check_targeted_crash(targ, replay_buf):
             found_time = int(replay_buf.split(FOUND_TIME_SIG)[1].split()[0])
@@ -174,10 +180,8 @@ def main():
     timeout = int(sys.argv[2]) if len(sys.argv) == 3 else -1
     targ_list, iter_cnt = get_experiment_info(outdir)
     targ_list.sort()
-    fuzz_targs = [x for (x, y, z, w) in FUZZ_TARGETS]
-    for targ in fuzz_targs:
-        if targ in targ_list:
-            analyze_targ_result(outdir, timeout, targ, iter_cnt)
+    for targ in targ_list:
+        analyze_targ_result(outdir, timeout, targ, iter_cnt)
 
 
 if __name__ == "__main__":

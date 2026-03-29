@@ -5,13 +5,13 @@ from parse_result import print_result
 
 BASE_DIR = "/results"
 
-def decide_basedir(benchmark, timelimit, iteration):
-    name = "%s-%ssec-%siters" % (benchmark, timelimit, iteration)
+def decide_basedir(experiment, timelimit, iteration):
+    name = "%s-%ssec-%siters" % (experiment, timelimit, iteration)
     outdir = os.path.join(BASE_DIR, name)
     return outdir
 
-def decide_outdir(benchmark, bug, timelimit, iteration, iter_id):
-    name = "%s-%ssec-%siters" % (benchmark, timelimit, iteration)
+def decide_outdir(experiment, bug, timelimit, iteration, iter_id):
+    name = "%s-%ssec-%siters" % (experiment, timelimit, iteration)
     outdir = os.path.join(BASE_DIR, name, "%s-iter-%d" % (bug, iter_id))
     os.makedirs(outdir, exist_ok=True)
     return outdir
@@ -38,26 +38,26 @@ def wait_finish(work, timelimit):
             print("%s-%s not finished" % (benchmark, iter_id))
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) != 4:
         print("Usage: %s <target name> <time> <iterations>" % sys.argv[0])
         exit(1)
 
     check_cpu_count()
 
-    benchmark = sys.argv[1]
+    experiment = sys.argv[1]
     timelimit = int(sys.argv[2])
     iteration = int(sys.argv[3])
 
     ### 1. Run fuzzing
-    worklist = generate_fuzzing_worklist(benchmark, iteration)
+    worklist = generate_fuzzing_worklist(experiment, iteration)
     for work in worklist:
-        benchmark, _, bug, _, _, iter_id = work
-        outdir = decide_outdir(benchmark, bug, str(timelimit), str(iteration), iter_id)
+        _, _, bug, _, _, iter_id = work
+        outdir = decide_outdir(experiment, bug, str(timelimit), str(iteration), iter_id)
         run_fuzzing(work, timelimit, outdir)
         wait_finish(work, timelimit)
 
     ### 2. Parse and print results in CSV and TSV format
-    outdir = decide_basedir(benchmark, str(timelimit), str(iteration))
+    outdir = decide_basedir(experiment, str(timelimit), str(iteration))
     print_result(outdir, worklist, timelimit, iteration)
 
     #### 3. Draw bar plot with TSV file

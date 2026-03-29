@@ -1,5 +1,24 @@
 from triage import *
 
+LEGACY_BENCHMARK_NAMES = {
+    'libming-4.7-swftophp': 'swftophp-4.7',
+    'libming-4.7.1-swftophp': 'swftophp-4.7.1',
+    'libming-4.8-swftophp': 'swftophp-4.8',
+    'libming-4.8.1-swftophp': 'swftophp-4.8.1',
+    'lrzip-9de7ccb-lrzip': 'lrzip-9de7ccb',
+    'lrzip-ed51e14-lrzip': 'lrzip-ed51e14',
+    'binutils-2.26-cxxfilt': 'cxxfilt',
+    'binutils-2.27-strip': 'strip',
+    'binutils-2.28-objcopy': 'objcopy',
+    'binutils-2.28-objdump': 'objdump',
+    'binutils-2.29-nm': 'nm',
+    'binutils-2.29-readelf': 'readelf',
+    'binutils-2.31.1-objdump': 'objdump-2.31.1',
+    'libxml2-2.9.4-xmllint': 'xmllint',
+    'libjpeg-1.5.90-cjpeg': 'cjpeg-1.5.90',
+    'libjpeg-2.0.4-cjpeg': 'cjpeg-2.0.4',
+}
+
 # Dictionary<target, List<(program, bug_id, cmdline, input_source, crash_checker)>>
 FUZZ_TARGETS = {
     'libming-4.7-swftophp': [
@@ -150,17 +169,97 @@ SLICE_TARGETS = {
     },
 }
 
+EVAL_FUZZ_TARGETS = [
+    ('libming-4.7-swftophp', '2016-9829'),
+    ('libming-4.7-swftophp', '2017-11729'),
+    ('binutils-2.26-cxxfilt', '2016-4487'),
+    ('binutils-2.28-objcopy', '2017-8393'),
+    ('binutils-2.29-readelf', '2017-16828'),
+    ('libxml2-2.9.4-xmllint', '2017-5969'),
+]
+
+
+def iter_fuzz_target_records():
+    for benchmark, targets in FUZZ_TARGETS.items():
+        for prog, bug, cmdline, src, crash_checker in targets:
+            yield benchmark, prog, bug, cmdline, src, crash_checker
+
+
+def _select_targets_for_bug(benchmark, bug):
+    targets = []
+    for prog, targ_bug, cmdline, src, crash_checker in FUZZ_TARGETS[benchmark]:
+        if targ_bug == bug:
+            targets.append((benchmark, prog, targ_bug, cmdline, src, crash_checker))
+    return targets
+
+
+def _build_target_aliases():
+    aliases = {}
+    for benchmark, _, bug, _, _, _ in iter_fuzz_target_records():
+        aliases[f"{benchmark}-{bug}"] = (benchmark, bug)
+        aliases[f"{LEGACY_BENCHMARK_NAMES[benchmark]}-{bug}"] = (benchmark, bug)
+    return aliases
+
+
+TARGET_ALIASES = _build_target_aliases()
+
+
+def resolve_fuzz_targets(target_spec):
+    if target_spec == "all":
+        return list(iter_fuzz_target_records())
+
+    if target_spec == "eval":
+        targets = []
+        for benchmark, bug in EVAL_FUZZ_TARGETS:
+            targets.extend(_select_targets_for_bug(benchmark, bug))
+        return targets
+
+    if target_spec in FUZZ_TARGETS:
+        return [
+            (target_spec, prog, bug, cmdline, src, crash_checker)
+            for prog, bug, cmdline, src, crash_checker in FUZZ_TARGETS[target_spec]
+        ]
+
+    if target_spec in TARGET_ALIASES:
+        benchmark, bug = TARGET_ALIASES[target_spec]
+        return _select_targets_for_bug(benchmark, bug)
+
+    return []
+
+
+def resolve_crash_checkers(target_spec):
+    if isinstance(target_spec, tuple):
+        benchmark, _, bug, _, _, _ = target_spec
+        return [
+            crash_checker
+            for _, targ_bug, _, _, crash_checker in FUZZ_TARGETS[benchmark]
+            if targ_bug == bug
+        ]
+
+    resolved_targets = resolve_fuzz_targets(target_spec)
+    if resolved_targets:
+        return [crash_checker for _, _, _, _, _, crash_checker in resolved_targets]
+
+    return [
+        crash_checker
+        for _, _, bug, _, _, crash_checker in iter_fuzz_target_records()
+        if bug == target_spec
+    ]
+
 
 def generate_fuzzing_worklist(benchmark, iteration):
     worklist = []
-    TARGETS = FUZZ_TARGETS[benchmark]
+    targets = resolve_fuzz_targets(benchmark)
+    if not targets:
+        print("Unsupported benchmark: %s" % benchmark)
+        exit(1)
 
-    for (prog, bug, cmdline, src, _) in TARGETS:
+    for (resolved_benchmark, prog, bug, cmdline, src, _) in targets:
         if src not in ["stdin", "file"]:
             print("Invalid input source specified: %s" % src)
             exit(1)
         for i in range(iteration):
-            worklist.append((benchmark, prog, bug, cmdline, src, i))
+            worklist.append((resolved_benchmark, prog, bug, cmdline, src, i))
 
     return worklist
 
@@ -177,9 +276,11 @@ def generate_slicing_worklist(benchmark):
 
 
 def check_targeted_crash(targ, replay_buf):
-    benchmark, _, bug, _, _, _ = targ
-    for (_, targ_bug, _, _, crash_checker) in FUZZ_TARGETS[benchmark]:
-        if targ_bug == bug:
-            return crash_checker(replay_buf)
-    print("Unknown target: %s" % targ)
-    exit(1)
+    checkers = resolve_crash_checkers(targ)
+    if not checkers:
+        print("Unknown target: %s" % targ)
+        exit(1)
+    for crash_checker in checkers:
+        if crash_checker(replay_buf):
+            return True
+    return False

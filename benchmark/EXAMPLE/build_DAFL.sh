@@ -14,6 +14,7 @@ BUG_NAMES=""
 BIN_PATH=""
 
 function build() {
+  :
 }
 # ================================
 
