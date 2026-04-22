@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Check smake
 echo "[*] Check smake..."
 if [ -d "./smake" ]; then

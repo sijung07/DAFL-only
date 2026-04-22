@@ -72,6 +72,7 @@ LLVM_SRC=$SRC/llvm-project
 
 # For manual bumping.
 OUR_LLVM_REVISION=llvmorg-12-init-17251-g6de48655
+FALLBACK_LLVM_REVISION=llvmorg-12.0.1
 
 # To allow for manual downgrades. Set to 0 to use Chrome's clang version (i.e.
 # *not* force a manual downgrade). Set to 1 to force a manual downgrade.
@@ -79,6 +80,11 @@ FORCE_OUR_REVISION=1
 LLVM_REVISION=$(grep -Po "CLANG_REVISION = '\K([^']+)" scripts/update.py)
 
 clone_with_retries https://github.com/llvm/llvm-project.git $LLVM_SRC
+
+if ! git -C $LLVM_SRC rev-parse -q --verify "refs/tags/$OUR_LLVM_REVISION" >/dev/null; then
+  echo "Requested LLVM revision '$OUR_LLVM_REVISION' is unavailable upstream; falling back to '$FALLBACK_LLVM_REVISION'."
+  OUR_LLVM_REVISION=$FALLBACK_LLVM_REVISION
+fi
 
 set +e
 git -C $LLVM_SRC merge-base --is-ancestor $OUR_LLVM_REVISION $LLVM_REVISION
