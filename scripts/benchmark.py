@@ -4,10 +4,9 @@ from triage import *
 
 EVAL_FUZZ_TARGETS = [
     ("swftophp-4.7-2016-9829", "@@", "file", check_swftophp_2016_9829),
-    ("swftophp-4.7-2017-11729", "@@", "file", check_swftophp_2017_11728),
+    ("swftophp-4.7.1-2017-7578", "@@", "file", check_swftophp_2017_7578),
     ("cxxfilt-2016-4487", "", "stdin", check_cxxfilt_2016_4487),
-    ("objcopy-2017-8393", "--compress-debug-sections @@ out", "file", \
-        check_objcopy_2017_8393),
+    ("objdump-2017-8392", "-SD @@", "file", check_objdump_2017_8392),
     ("readelf-2017-16828", "-w @@", "file", check_readelf_2017_16828),
     ("xmllint-2017-5969", "--recover @@", "file", check_xmllint_2017_5969)
 ]
