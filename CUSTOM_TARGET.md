@@ -5,11 +5,11 @@
 임의의 단일 파일 C 프로그램을 DAFL로 퍼징할 수 있게 해 줍니다.
 
 ```bash
-./fuzz_custom.sh simple_abort.c 21 60 1
+./fuzz_custom.sh new-targets/simple_abort.c 21 60 1
 ```
 
-위 명령은 `simple_abort.c`의 **21번째 줄**(`if (byte == '!')`)을 타겟으로 60초,
-1회 퍼징을 수행합니다.
+위 명령은 `new-targets/simple_abort.c`의 **21번째 줄**(`if (byte == '!')`)을
+타겟으로 60초, 1회 퍼징을 수행합니다. (동일한 명령이 `new_target.sh`에도 있습니다.)
 
 > ⚠️ **타겟 라인은 "데이터를 사용하는" 실행문이어야 합니다.** DAFL은 타겟까지의
 > *데이터 의존성(DFG)* 으로 퍼징을 유도합니다. 따라서 `abort();`/`exit();` 처럼
@@ -59,17 +59,17 @@ python3 scripts/run_custom.py <source.c> <line> [time] [iters] [options]
 | `--cmdline` | `@@` | 타겟 실행 인자. `@@`는 입력 파일 경로로 치환됨 |
 | `--input` | `file` | 입력 전달 방식: `file`(`@@`) 또는 `stdin` |
 | `--entry` | `main` | Sparrow 분석 진입점 |
-| `--cflags` | (없음) | 빌드 시 추가 CFLAGS |
+| `--cflags` | (없음) | 추가 CFLAGS. **전처리 단계에도 적용**되므로 `-I`, `-D`가 필요한 소스도 처리된다. `-l...` 는 소스 파일 뒤에 놓여 정상 링크된다 |
 | `--mem` | `4` | 컨테이너당 메모리(GB) |
 
 ### 예시
 
 ```bash
 # 파일 인자로 입력을 받는 타겟
-python3 scripts/run_custom.py simple_abort.c 24 60 1
+python3 scripts/run_custom.py new-targets/simple_abort.c 21 60 1
 
 # stdin으로 입력을 받는 타겟
-python3 scripts/run_custom.py simple_abort.c 24 60 1 --input stdin
+python3 scripts/run_custom.py new-targets/simple_abort.c 21 60 1 --input stdin
 
 # 타겟이 별도 인자/플래그를 받는 경우
 python3 scripts/run_custom.py mytool.c 130 300 4 --cmdline "-d @@"

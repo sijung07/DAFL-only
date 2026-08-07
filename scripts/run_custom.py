@@ -15,8 +15,12 @@
 # Usage:
 #   python3 scripts/run_custom.py <source.c> <line> [time] [iters] [options]
 #
-# Example (the bundled simple_abort.c, target line 24, 60s, 1 run):
-#   python3 scripts/run_custom.py simple_abort.c 24 60 1
+# Example (the bundled simple_abort.c, target line 21, 60s, 1 run):
+#   python3 scripts/run_custom.py new-targets/simple_abort.c 21 60 1
+#
+# The target line must be a statement that *uses data* (line 21 is the
+# `if (byte == '!')` branch). Pointing at `abort();` on line 24 leaves the DFG
+# slice empty and Sparrow fails with `empty list to list_max()`.
 #
 import sys, os, time, argparse, subprocess
 
@@ -131,7 +135,9 @@ def main():
     ap.add_argument("--entry", default="main",
                     help="Entry point for Sparrow (default: main)")
     ap.add_argument("--cflags", default="",
-                    help="Extra CFLAGS for building the target (default: none)")
+                    help="Extra CFLAGS, applied to preprocessing as well as "
+                         "both builds, so -I/-D reach the Sparrow frontend "
+                         "input (default: none)")
     ap.add_argument("--mem", type=int, default=4,
                     help="Memory per container in GB (default: 4)")
     args = ap.parse_args()

@@ -15,8 +15,12 @@
 # Usage:
 #   prepare_custom.sh <bin_name> <source_file> <target_line> [entry_point] [extra_cflags]
 #
-# Example:
-#   prepare_custom.sh simple_abort /custom/simple_abort.c 24 main ""
+# extra_cflags applies to the preprocessing step as well as the two builds, so
+# -I/-D reach the Sparrow frontend input. See the notes at each step below.
+#
+# Example (target line 21 is the `if (byte == '!')` guard; line 24 is the bare
+# abort() call, which has no data dependency and makes Sparrow fail):
+#   prepare_custom.sh simple_abort /custom/simple_abort.c 21 main ""
 #
 set -e
 
@@ -49,8 +53,11 @@ cd "$WORK"
 ### 1. Preprocess source into a .i file for Sparrow's CIL frontend.
 # NOTE: do NOT pass -P; the '# <line> "file"' markers are required so that
 # Sparrow maps the slice location ($SRC_BASE:$LINE) back to the source.
+# EXTRA_CFLAGS is passed here too: -I/-D are needed to preprocess at all, so
+# withholding them would fail this step even when the build flags were given.
+# A linker flag (-l...) in EXTRA_CFLAGS is merely reported as an unused argument.
 echo "[*] (1/4) Preprocessing -> $BIN_NAME.i"
-clang -E "$WORK/$SRC_BASE" -o "$WORK/$BIN_NAME.i"
+clang -E $EXTRA_CFLAGS "$WORK/$SRC_BASE" -o "$WORK/$BIN_NAME.i"
 
 ### 2. Slice with Sparrow w.r.t the target line.
 echo "[*] (2/4) Running Sparrow static analysis"
@@ -97,14 +104,16 @@ echo "    instrumentation targets: $(wc -l < "$INST_TARG") functions"
 ### 3. Build DAFL-instrumented binary.
 echo "[*] (3/4) Building DAFL-instrumented binary -> /benchmark/bin/DAFL/$BIN_NAME"
 mkdir -p /benchmark/bin/DAFL /benchmark/bin/ASAN
+# EXTRA_CFLAGS goes *after* the source: -I/-D work in either position, but a
+# library flag (-lm, -lpthread) only resolves when it follows the input file.
 DAFL_SELECTIVE_COV="$INST_TARG" \
 DAFL_DFG_SCORE="$DFG_SCORE" \
-    $DAFL_CC $DEFAULT_FLAGS -fsanitize=address $EXTRA_CFLAGS \
-    "$WORK/$SRC_BASE" -o "/benchmark/bin/DAFL/$BIN_NAME"
+    $DAFL_CC $DEFAULT_FLAGS -fsanitize=address \
+    "$WORK/$SRC_BASE" $EXTRA_CFLAGS -o "/benchmark/bin/DAFL/$BIN_NAME"
 
 ### 4. Build ASAN binary for crash replay (used by common-postproc.sh).
 echo "[*] (4/4) Building ASAN binary -> /benchmark/bin/ASAN/$BIN_NAME"
-clang $DEFAULT_FLAGS -fsanitize=address $EXTRA_CFLAGS \
-    "$WORK/$SRC_BASE" -o "/benchmark/bin/ASAN/$BIN_NAME"
+clang $DEFAULT_FLAGS -fsanitize=address \
+    "$WORK/$SRC_BASE" $EXTRA_CFLAGS -o "/benchmark/bin/ASAN/$BIN_NAME"
 
 echo "PREPARE_DONE"
