@@ -12,6 +12,46 @@ EVAL_FUZZ_TARGETS = [
     ("xmllint-2017-5969", "--recover @@", "file", check_xmllint_2017_5969)
 ]
 
+# GNU binutils CVEs, for measuring how many known CVEs the tool can reproduce
+# from the CVE's source location alone. Entries are copied verbatim from
+# FUZZ_TARGETS below; keep them in sync if the command lines there change.
+#
+# nm-2017-14940 is deliberately last and belongs in its own reporting category:
+# every other entry is judged by a memory-error signature, while nm is judged by
+# "Exit value is 137" (killed by the timeout), i.e. a hang / resource-exhaustion
+# finding. Its result therefore depends on the time limit, and common-postproc.sh
+# scans output/hangs/ instead of output/crashes/ for it.
+BINUTILS_FUZZ_TARGETS = [
+    # c++filt -- 6 CVEs, stdin input, no arguments (binutils 2.26)
+    ("cxxfilt-2016-4487", "", "stdin", check_cxxfilt_2016_4487),
+    ("cxxfilt-2016-4489", "", "stdin", check_cxxfilt_2016_4489),
+    ("cxxfilt-2016-4490", "", "stdin", check_cxxfilt_2016_4490),
+    ("cxxfilt-2016-4491", "", "stdin", check_cxxfilt_2016_4491),
+    ("cxxfilt-2016-4492", "", "stdin", check_cxxfilt_2016_4492),
+    ("cxxfilt-2016-6131", "", "stdin", check_cxxfilt_2016_6131),
+    # objdump -- 5 CVEs (binutils 2.28, 2.31.1)
+    ("objdump-2017-8392", "-SD @@", "file", check_objdump_2017_8392),
+    ("objdump-2017-8396", "-W @@", "file", check_objdump_2017_8396),
+    ("objdump-2017-8397", "-W @@", "file", check_objdump_2017_8397),
+    ("objdump-2017-8398", "-W @@", "file", check_objdump_2017_8398),
+    ("objdump-2.31.1-2018-17360", "--dwarf-check -C -g -f -dwarf -x @@", "file", \
+        check_objdump_2018_17360),
+    # objcopy -- 3 CVEs (binutils 2.28)
+    ("objcopy-2017-8393", "--compress-debug-sections @@ out", "file", \
+        check_objcopy_2017_8393),
+    ("objcopy-2017-8394", "-Gs @@ out", "file",  \
+        check_objcopy_2017_8394),
+    ("objcopy-2017-8395", "--compress-debug-sections @@ out", "file", \
+        check_objcopy_2017_8395),
+    # readelf -- 1 CVE (binutils 2.29)
+    ("readelf-2017-16828", "-w @@", "file", check_readelf_2017_16828),
+    # strip -- 1 CVE (binutils 2.27)
+    ("strip-2017-7303", "-o /dev/null @@", "file", check_strip_2017_7303),
+    # nm -- 1 CVE, hang / resource exhaustion (see note above)
+    ("nm-2017-14940", "-A -a -l -S -s --special-syms --synthetic --with-symbol-versions -D @@", \
+        "file", check_nm_2017_14940),
+]
+
 FUZZ_TARGETS = [
     ("swftophp-4.7-2016-9827", "@@", "file", check_swftophp_2016_9827),
     ("swftophp-4.7-2016-9829", "@@", "file", check_swftophp_2016_9829),
@@ -204,6 +244,8 @@ def generate_fuzzing_worklist(benchmark, iteration):
         TARGETS = FUZZ_TARGETS
     elif benchmark == "eval":
         TARGETS = EVAL_FUZZ_TARGETS
+    elif benchmark == "binutils":
+        TARGETS = BINUTILS_FUZZ_TARGETS
     else:
         TARGETS = [t for t in FUZZ_TARGETS if t[0] == benchmark]
 
