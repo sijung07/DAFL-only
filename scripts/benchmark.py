@@ -52,6 +52,24 @@ BINUTILS_FUZZ_TARGETS = [
         "file", check_nm_2017_14940),
 ]
 
+# The BINUTILS_FUZZ_TARGETS entries that did not reproduce within a 2-hour
+# budget (5 iterations each). Split out so a longer budget can be spent only on
+# these, instead of re-running the ten that already reproduced quickly.
+# Reference durations recorded in this file put objdump-2017-8397 and
+# nm-2017-14940 in the 86,400s range, so 24 hours is the budget this set is for.
+BINUTILS_LONG_FUZZ_TARGETS = [
+    ("cxxfilt-2016-4491", "", "stdin", check_cxxfilt_2016_4491),
+    ("cxxfilt-2016-6131", "", "stdin", check_cxxfilt_2016_6131),
+    ("objdump-2017-8396", "-W @@", "file", check_objdump_2017_8396),
+    ("objdump-2017-8397", "-W @@", "file", check_objdump_2017_8397),
+    ("objdump-2.31.1-2018-17360", "--dwarf-check -C -g -f -dwarf -x @@", "file", \
+        check_objdump_2018_17360),
+    ("objcopy-2017-8394", "-Gs @@ out", "file",  \
+        check_objcopy_2017_8394),
+    ("nm-2017-14940", "-A -a -l -S -s --special-syms --synthetic --with-symbol-versions -D @@", \
+        "file", check_nm_2017_14940),
+]
+
 FUZZ_TARGETS = [
     ("swftophp-4.7-2016-9827", "@@", "file", check_swftophp_2016_9827),
     ("swftophp-4.7-2016-9829", "@@", "file", check_swftophp_2016_9829),
@@ -246,6 +264,8 @@ def generate_fuzzing_worklist(benchmark, iteration):
         TARGETS = EVAL_FUZZ_TARGETS
     elif benchmark == "binutils":
         TARGETS = BINUTILS_FUZZ_TARGETS
+    elif benchmark == "binutils-long":
+        TARGETS = BINUTILS_LONG_FUZZ_TARGETS
     else:
         TARGETS = [t for t in FUZZ_TARGETS if t[0] == benchmark]
 
