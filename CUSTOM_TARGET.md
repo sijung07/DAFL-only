@@ -82,12 +82,24 @@ python3 scripts/run_custom.py mytool.c 130 300 4 --cmdline "-d @@"
 결과는 다음 경로에 저장됩니다.
 
 ```
-output/<bin_name>-custom-<time>sec-<iters>iters/<bin_name>-custom-iter-<n>/
-├─ crashes/         <- AFL이 찾은 크래시 입력
-├─ hangs/
-├─ replay_log.txt   <- 각 크래시를 ASAN 바이너리로 재현한 로그
-└─ ...
+output/<bin_name>-custom-<time>sec-<iters>iters/
+├─ run_info.json        <- 실행 설정(소스 파일, 타겟 라인 등)과 회차별 상태
+└─ <bin_name>-custom-iter-<n>/
+   ├─ crashes/          <- AFL이 찾은 크래시 입력
+   ├─ hangs/
+   ├─ replay_log.txt    <- 각 크래시를 ASAN 바이너리로 재현한 로그
+   ├─ prepare_log.txt   <- 전처리·Sparrow 분석·빌드 로그
+   ├─ fuzz_log.txt      <- 퍼징 로그 (앞뒤 50줄씩)
+   └─ ...
 ```
+
+`run_info.json`의 `runs[].status`는 회차별로 다음 중 하나입니다.
+
+| status | 의미 | 원인 확인 |
+|---|---|---|
+| `finished` | 퍼징이 끝나고 결과를 수집함 | - |
+| `prepare_failed` | 전처리·분석·빌드 단계에서 실패해 퍼징을 시작하지 못함 | `prepare_log.txt` |
+| `no_output` | 퍼징을 시작했지만 결과 폴더가 만들어지지 않음 | `fuzz_log.txt` |
 
 `simple_abort.c`의 경우, 크래시 입력의 첫 바이트가 `!`이면
 `replay_log.txt`에 `SIMPLE_ABORT_TRIGGERED`와 abort 신호가 기록됩니다.

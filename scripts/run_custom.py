@@ -22,12 +22,17 @@
 # `if (byte == '!')` branch). Pointing at `abort();` on line 24 leaves the DFG
 # slice empty and Sparrow fails with `empty list to list_max()`.
 #
-import sys, os, time, argparse, subprocess
+import sys, os, re, time, json, argparse, subprocess
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 IMAGE_NAME = "gdfuzz"
 PREPARE_SCRIPT = os.path.join(
     BASE_DIR, "docker-setup", "tool-script", "prepare_custom.sh")
+# In-container file that receives the fuzzing campaign's stdout/stderr.
+FUZZ_LOG = "/fuzz_log.txt"
+# Lines kept from each end of the fuzzing log (it grows with the time limit).
+FUZZ_LOG_KEEP = 50
+ANSI_ESCAPE = re.compile(r"\x1b(\[[0-9;?]*[A-Za-z]|\([A-Za-z0-9])")
 
 
 def run(cmd, check=True, capture=True):
@@ -84,16 +89,53 @@ def fuzz_one(args, iter_id, cpu):
             "/tool-script/prepare_custom.sh %s /custom/%s %d %s '%s'"
             % (bin_name, src_base, args.line, args.entry, args.cflags))
     p = docker_exec(container, prep, check=False)
-    if "PREPARE_DONE" not in (p.stdout or ""):
+    prep_log = p.stdout or ""
+    if "PREPARE_DONE" not in prep_log:
         print("[!] Preparation failed for %s; skipping this run." % container)
         run("docker kill %s" % container, check=False)
-        return None
+        return container, prep_log, False
 
-    # 4. Run the actual fuzzing campaign (detached).
-    fuzz = ("/tool-script/run_DAFL.sh %s \"%s\" %s %d"
-            % (bin_name, cmdline, args.input, args.time))
+    # 4. Run the actual fuzzing campaign (detached). Its output is kept in
+    #    FUZZ_LOG so that a campaign which aborts early can still be diagnosed.
+    fuzz = ("/tool-script/run_DAFL.sh %s \"%s\" %s %d > %s 2>&1"
+            % (bin_name, cmdline, args.input, args.time, FUZZ_LOG))
     docker_exec(container, fuzz, detached=True)
-    return container
+    return container, prep_log, True
+
+
+def write_text(path, text):
+    with open(path, "w") as f:
+        f.write(ANSI_ESCAPE.sub("", text))
+
+
+def save_fuzz_log(container, dst):
+    # Keep only the head (startup, abort reason) and the tail (last progress).
+    keep = FUZZ_LOG_KEEP
+    cmd = ("n=$(wc -l < {log}); if [ $n -le {both} ]; then cat {log}; else "
+           "head -n {keep} {log}; echo \"... ($((n - {both})) lines omitted) ...\"; "
+           "tail -n {keep} {log}; fi").format(log=FUZZ_LOG, keep=keep,
+                                             both=2 * keep)
+    p = subprocess.run(["docker", "exec", container, "/bin/bash", "-c", cmd],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       text=True, errors="replace")
+    write_text(dst, p.stdout or "")
+
+
+def write_run_info(outdir, args, statuses):
+    info = {
+        "source": os.path.basename(args.source),
+        "target_line": args.line,
+        "bin_name": args.bin_name,
+        "cmdline": args.cmdline,
+        "input": args.input,
+        "entry": args.entry,
+        "cflags": args.cflags,
+        "time_limit_sec": args.time,
+        "iterations": args.iters,
+        "runs": [{"name": c, "status": s} for (c, s) in statuses],
+    }
+    with open(os.path.join(outdir, "run_info.json"), "w") as f:
+        json.dump(info, f, indent=2)
 
 
 def wait_finish(containers, timelimit):
@@ -158,26 +200,48 @@ def main():
     os.makedirs(outdir, exist_ok=True)
 
     # Spawn + prepare + launch every iteration, then wait for all to finish.
+    # Every run directory gets prepare_log.txt; run_info.json records the
+    # settings (incl. the target line) and how each run ended.
     containers = []
+    statuses = []
     for i in range(args.iters):
-        c = fuzz_one(args, "iter-%d" % i, cpu=i)
-        if c:
-            containers.append(c)
+        c, prep_log, ok = fuzz_one(args, "iter-%d" % i, cpu=i)
+        statuses.append([c, "running"])
+        if ok:
+            containers.append((c, prep_log))
+        else:
+            os.makedirs(os.path.join(outdir, c), exist_ok=True)
+            write_text(os.path.join(outdir, c, "prepare_log.txt"), prep_log)
+            statuses[-1][1] = "prepare_failed"
 
     if not containers:
-        print("[!] No runs started successfully.")
+        write_run_info(outdir, args, statuses)
+        print("[!] No runs started successfully. See prepare_log.txt under:"
+              "\n    %s" % outdir)
         sys.exit(1)
 
-    wait_finish(containers, args.time)
+    wait_finish([c for (c, _) in containers], args.time)
 
     # Collect outputs and clean up.
-    for c in containers:
-        run("docker cp %s:/output %s/%s" % (c, outdir, c), check=False)
+    for c, prep_log in containers:
+        rundir = os.path.join(outdir, c)
+        p = run("docker cp %s:/output %s" % (c, rundir), check=False)
+        os.makedirs(rundir, exist_ok=True)
+        write_text(os.path.join(rundir, "prepare_log.txt"), prep_log)
+        save_fuzz_log(c, os.path.join(rundir, "fuzz_log.txt"))
+        for st in statuses:
+            if st[0] == c:
+                st[1] = "finished" if p.returncode == 0 else "no_output"
         run("docker kill %s" % c, check=False)
 
+    write_run_info(outdir, args, statuses)
+
     print("\n[*] Done. Results saved under:\n    %s" % outdir)
-    print("    - crashes/      : crashing inputs found by AFL")
-    print("    - replay_log.txt: ASAN replay of each crash")
+    print("    - run_info.json  : settings (incl. target line) and run status")
+    print("    - crashes/       : crashing inputs found by AFL")
+    print("    - replay_log.txt : ASAN replay of each crash")
+    print("    - prepare_log.txt: preprocessing / Sparrow / build log")
+    print("    - fuzz_log.txt   : fuzzing log (head and tail)")
 
 
 if __name__ == "__main__":
