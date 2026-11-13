@@ -3,9 +3,8 @@
 # run_custom.py — Fuzz an arbitrary single-file C target with DAFL, given only
 # the source file and the target line.
 #
-# Unlike scripts/run.py (which can only fuzz targets that were pre-analyzed and
-# baked into the Docker image), this script does the whole DAFL pipeline at
-# runtime inside a fresh container spawned from the existing `gdfuzz` image:
+# This script runs the whole DAFL pipeline for the given source file inside a
+# fresh container spawned from the `gdfuzz` image:
 #
 #   source.c + line  ->  preprocess -> Sparrow slice -> DAFL build -> afl-fuzz
 #
