@@ -32,7 +32,7 @@ PREPARE_SCRIPT = os.path.join(
 FUZZ_LOG = "/fuzz_log.txt"
 # Lines kept from each end of the fuzzing log (it grows with the time limit).
 FUZZ_LOG_KEEP = 50
-ANSI_ESCAPE = re.compile(r"\x1b(\[[0-9;?]*[A-Za-z]|\([A-Za-z0-9])")
+ANSI_ESCAPE = re.compile(r"\x1b(\[[0-9;?]*[A-Za-z]|[()][A-Za-z0-9])|[\x0e\x0f]")
 
 
 def run(cmd, check=True, capture=True):
@@ -225,13 +225,16 @@ def main():
     # Collect outputs and clean up.
     for c, prep_log in containers:
         rundir = os.path.join(outdir, c)
-        p = run("docker cp %s:/output %s" % (c, rundir), check=False)
+        run("docker cp %s:/output %s" % (c, rundir), check=False)
         os.makedirs(rundir, exist_ok=True)
         write_text(os.path.join(rundir, "prepare_log.txt"), prep_log)
         save_fuzz_log(c, os.path.join(rundir, "fuzz_log.txt"))
+        # AFL writes fuzzer_stats once fuzzing is underway; an abort during
+        # startup (e.g. every seed crashes) can still leave a partial output.
+        done = os.path.isfile(os.path.join(rundir, "fuzzer_stats"))
         for st in statuses:
             if st[0] == c:
-                st[1] = "finished" if p.returncode == 0 else "no_output"
+                st[1] = "finished" if done else "fuzz_failed"
         run("docker kill %s" % c, check=False)
 
     write_run_info(outdir, args, statuses)

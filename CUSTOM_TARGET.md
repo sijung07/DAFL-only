@@ -99,7 +99,7 @@ output/<bin_name>-custom-<time>sec-<iters>iters/
 |---|---|---|
 | `finished` | 퍼징이 끝나고 결과를 수집함 | - |
 | `prepare_failed` | 전처리·분석·빌드 단계에서 실패해 퍼징을 시작하지 못함 | `prepare_log.txt` |
-| `no_output` | 퍼징을 시작했지만 결과 폴더가 만들어지지 않음 | `fuzz_log.txt` |
+| `fuzz_failed` | 퍼징이 시작 직후 중단됨 (예: 모든 초기 입력이 크래시, 시스템 설정 문제) | `fuzz_log.txt` |
 
 `simple_abort.c`의 경우, 크래시 입력의 첫 바이트가 `!`이면
 `replay_log.txt`에 `SIMPLE_ABORT_TRIGGERED`와 abort 신호가 기록됩니다.
